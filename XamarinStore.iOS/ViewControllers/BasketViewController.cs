@@ -5,6 +5,8 @@ using System.Drawing;
 using MonoTouch.CoreAnimation;
 using System.Linq;
 using System.Threading.Tasks;
+using MonoTouch.ObjCRuntime;
+using MonoTouch.Foundation;
 
 namespace XamarinStore
 {
@@ -14,6 +16,7 @@ namespace XamarinStore
 		EmptyBasketView EmptyCartImageView;
 		BottomButtonView BottomView;
 		UILabel totalAmount;
+		const string LONG_PRESS_SELECTOR = "HandleLongPress";
 
 		public event EventHandler Checkout;
 
@@ -28,6 +31,11 @@ namespace XamarinStore
 			TableView.SeparatorStyle = UITableViewCellSeparatorStyle.None;
 			TableView.RowHeight = 75;
 			TableView.TableFooterView = new UIView (new RectangleF (0, 0, 0, BottomButtonView.Height));
+
+			var longPress = new UILongPressGestureRecognizer (this, new Selector (LONG_PRESS_SELECTOR));
+			longPress.MinimumPressDuration = 1.0; //seconds
+			TableView.AddGestureRecognizer (longPress);
+
 			this.View.AddSubview (BottomView = new BottomButtonView () {
 				ButtonText = "Checkout",
 				ButtonTapped = () => {
@@ -45,6 +53,17 @@ namespace XamarinStore
 			totalAmount.SizeToFit ();
 			this.NavigationItem.RightBarButtonItem = new UIBarButtonItem (totalAmount);
 			UpdateTotals ();
+		}
+
+		[Export (LONG_PRESS_SELECTOR)]
+		void HandleLongPress (UILongPressGestureRecognizer gestureRecognizer)
+		{
+			var p = gestureRecognizer.LocationInView (TableView);
+
+			NSIndexPath indexPath = TableView.IndexPathForRowAtPoint (p);
+			if (indexPath != null && gestureRecognizer.State == UIGestureRecognizerState.Began) {
+				TableView.Editing = !TableView.Editing;
+			}
 		}
 
 		public void UpdateTotals ()
@@ -247,7 +266,7 @@ namespace XamarinStore
 					ColorLabel.Text = product.Color.Name;
 					PriceLabel.Text = product.PriceDescription;
 					var imageTask = FileCache.Download (product.ImageForSize (320));
-					if(!imageTask.IsCompleted)
+					if (!imageTask.IsCompleted)
 						//Put default before doing the web request;
 						ImageView.Image = Image.Value;
 					var image = await imageTask;
